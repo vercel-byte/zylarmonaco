@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-tabs {
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            align-items: center;
+            height: 35px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .tab {
+            padding: 8px 12px;
+            background-color: #1a1a1a;
+            border-right: 1px solid #404040;
+            cursor: pointer;
+            font-size: 12px;
+            color: #b4b4b4;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            min-width: 80px;
+            justify-content: space-between;
+        }
+
+        .tab:hover {
+            background-color: #2d2d2d;
+        }
+
+        .tab.active {
+            background-color: #2d2d2d;
+            color: #4a9eff;
+            border-bottom: 2px solid #4a9eff;
+        }
+
+        .tab-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-close {
+            color: #666;
+            font-size: 12px;
+            width: 14px;
+            height: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .tab:hover .tab-close {
+            opacity: 1;
+        }
+
+        .tab-close:hover {
+            background-color: #dc3545;
+            color: #ffffff;
+        }
+
+        .add-tab {
+            padding: 8px 12px;
+            background-color: #1a1a1a;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            width: 35px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .add-tab:hover {
+            background-color: #2d2d2d;
+            color: #b4b4b4;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .editor-instance {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            overflow: hidden;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-tabs" id="tabsContainer">
+        <div class="tab active" data-tab="editor1">
+            <span class="tab-name">Tab 1</span>
+            <span class="tab-close" onclick="closeTab(event, 'editor1')">×</span>
+        </div>
+        <div class="add-tab" onclick="addNewTab()">+</div>
+    </div>
+
+    <div class="editor-container">
+        <div id="editor1" class="editor-instance"></div>
+    </div>
+
+    <script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+    <script>
+        let editors = {};
+        let activeTab = 'editor1';
+        
+        // Function to get the next available tab number
+        function getNextTabNumber() {
+            const existingTabs = document.querySelectorAll('.tab');
+            const usedNumbers = new Set();
+            
+            // Extract all currently used tab numbers
+            existingTabs.forEach(tab => {
+                const tabName = tab.querySelector('.tab-name').textContent;
+                const match = tabName.match(/Tab (\d+)/);
+                if (match) {
+                    usedNumbers.add(parseInt(match[1]));
+                }
+            });
+            
+            // Find the lowest available number starting from 1
+            let nextNumber = 1;
+            while (usedNumbers.has(nextNumber)) {
+                nextNumber++;
+            }
+            
+            return nextNumber;
+        }
+
+        // Initialize Monaco Editor
+        require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            // Define custom theme
+            monaco.editor.defineTheme('zylar-dark', {
+                base: 'vs-dark',
+                inherit: true,
+                rules: [
+                    { token: 'comment', foreground: '6A9955' },
+                    { token: 'keyword', foreground: '569cd6' },
+                    { token: 'string', foreground: 'ce9178' },
+                    { token: 'number', foreground: 'b5cea8' },
+                    { token: 'operator', foreground: 'd4d4d4' },
+                    { token: 'delimiter', foreground: 'd4d4d4' }
+                ],
+                colors: {
+                    'editor.background': '#1a1a1a',
+                    'editor.foreground': '#ffffff',
+                    'editorLineNumber.foreground': '#858585',
+                    'editorCursor.foreground': '#ffffff',
+                    'editor.selectionBackground': '#264f78',
+                    'editor.inactiveSelectionBackground': '#3a3d41',
+                    'editorIndentGuide.background': '#404040',
+                    'editorIndentGuide.activeBackground': '#707070'
+                }
+            });
+
+            // Create initial editor
+            createEditor('editor1', '-- Tab 1\nMade By Dxa\n\nprint("https://discord.gg/nBZBKCnFCN")');
+            
+            monaco.editor.setTheme('zylar-dark');
+        });
+
+        function createEditor(id, content = '') {
+            const container = document.getElementById(id);
+            if (!container) return;
+
+            const editor = monaco.editor.create(container, {
+                value: content,
+                language: 'lua',
+                theme: 'zylar-dark',
+                fontSize: 14,
+                fontFamily: 'Fira Code, Consolas, Monaco, monospace',
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                wordWrap: 'on',
+                lineNumbers: 'on',
+                renderWhitespace: 'selection',
+                bracketPairColorization: { enabled: true },
+                suggestOnTriggerCharacters: true,
+                quickSuggestions: true,
+                parameterHints: { enabled: true },
+                domReadOnly: false,
+                readOnly: false
+            });
+
+            // Add keyboard shortcuts if needed
+            // editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
+            //     // Execute functionality can be hooked up here
+            // });
+
+            editors[id] = editor;
+        }
+
+        function switchTab(tabId) {
+            // Hide all editors
+            Object.keys(editors).forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+
+            // Show active editor
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Update tab styles
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+
+            activeTab = tabId;
+
+            // Focus the editor
+            if (editors[tabId]) {
+                editors[tabId].focus();
+            }
+        }
+
+        function renumberTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach((tab, index) => {
+                const tabName = tab.querySelector('.tab-name');
+                const newNumber = index + 1;
+                tabName.textContent = `Tab ${newNumber}`;
+                
+                // Update the editor content comment as well
+                const tabId = tab.getAttribute('data-tab');
+                if (editors[tabId]) {
+                    const currentContent = editors[tabId].getValue();
+                    const updatedContent = currentContent.replace(/^-- Tab \d+/, `-- Tab ${newNumber}`);
+                    editors[tabId].setValue(updatedContent);
+                }
+            });
+        }
+
+        function closeTab(event, tabId) {
+            event.stopPropagation();
+            
+            const tabs = document.querySelectorAll('.tab');
+            if (tabs.length <= 1) {
+                return; // Cannot close the last tab
+            }
+
+            // Remove tab from DOM
+            const tabElement = document.querySelector(`[data-tab="${tabId}"]`);
+            if (tabElement) {
+                tabElement.remove();
+            }
+
+            // Remove editor
+            if (editors[tabId]) {
+                editors[tabId].dispose();
+                delete editors[tabId];
+            }
+
+            // Remove editor container
+            const editorElement = document.getElementById(tabId);
+            if (editorElement) {
+                editorElement.remove();
+            }
+
+            // Switch to another tab if this was active
+            if (tabId === activeTab) {
+                const remainingTabs = document.querySelectorAll('.tab');
+                if (remainingTabs.length > 0) {
+                    const newActiveTab = remainingTabs[0].getAttribute('data-tab');
+                    switchTab(newActiveTab);
+                }
+            }
+
+            // Renumber all remaining tabs to maintain consecutive numbering
+            renumberTabs();
+        }
+
+        function addNewTab() {
+            // Get next available tab number
+            const newTabNumber = getNextTabNumber();
+            const newTabId = `editor${Date.now()}`; // Use timestamp for unique ID
+            
+            console.log('Creating tab with number:', newTabNumber, 'ID:', newTabId);
+            
+            // Create tab name
+            const newTabName = `Tab ${newTabNumber}`;
+
+            // Create tab element
+            const tabsContainer = document.getElementById('tabsContainer');
+            const addButton = tabsContainer.querySelector('.add-tab');
+            
+            const newTab = document.createElement('div');
+            newTab.className = 'tab';
+            newTab.setAttribute('data-tab', newTabId);
+            newTab.innerHTML = `
+                <span class="tab-name">${newTabName}</span>
+                <span class="tab-close" onclick="closeTab(event, '${newTabId}')">×</span>
+            `;
+            tabsContainer.insertBefore(newTab, addButton);
+
+            // Create editor container
+            const editorContainer = document.querySelector('.editor-container');
+            const newEditorDiv = document.createElement('div');
+            newEditorDiv.id = newTabId;
+            newEditorDiv.className = 'editor-instance hidden';
+            editorContainer.appendChild(newEditorDiv);
+
+            // Create editor
+            setTimeout(() => {
+                createEditor(newTabId, '');
+                switchTab(newTabId);
+            }, 50);
+        }
+
+        // Handle all tab clicks globally
+        document.addEventListener('click', (e) => {
+            // Handle close button clicks
+            if (e.target.classList.contains('tab-close')) {
+                e.stopPropagation();
+                const tab = e.target.closest('.tab');
+                const tabId = tab.getAttribute('data-tab');
+                closeTab(e, tabId);
+                return;
+            }
+            
+            // Handle tab switching clicks
+            if (e.target.closest('.tab') && !e.target.closest('.tab-close')) {
+                const tab = e.target.closest('.tab');
+                const tabId = tab.getAttribute('data-tab');
+                switchTab(tabId);
+            }
+        });
+    </script>
+</body>
+</html>
